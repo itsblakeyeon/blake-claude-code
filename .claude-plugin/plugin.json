@@ -1,0 +1,14 @@
+{
+  "name": "blake-claude-code",
+  "version": "0.1.0",
+  "description": "Blake's personal Claude Code plugin - job matching, resume customization, and more",
+  "author": {
+    "name": "Blake Yeon"
+  },
+  "license": "MIT",
+  "keywords": ["claude-code", "plugin", "personal"],
+  "agents": [
+    "./agents/job-analyzer.md"
+  ],
+  "skills": ["./skills/"]
+}
