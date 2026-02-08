@@ -1,0 +1,24 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "blake-claude-code",
+  "description": "Blake's personal Claude Code plugin",
+  "owner": {
+    "name": "Blake Yeon",
+    "email": "itsblakeyeon@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "blake-claude-code",
+      "description": "Blake's personal Claude Code plugin - job matching, resume customization, and more",
+      "version": "0.1.0",
+      "author": {
+        "name": "Blake Yeon",
+        "email": "itsblakeyeon@gmail.com"
+      },
+      "source": "./",
+      "category": "productivity",
+      "homepage": "https://github.com/itsblakeyeon/blake-claude-code",
+      "tags": ["personal", "job-matching", "resume"]
+    }
+  ]
+}
