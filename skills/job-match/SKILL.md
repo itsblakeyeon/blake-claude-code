@@ -121,6 +121,19 @@ description: 채용공고 크롤링 → 프로필 매칭 → 솔직한 추천
   - "이런 분이면 더 좋아요" (우대사항)는 필수가 아니다. 없어도 감점하지 않는다
   - 채점은 쿠팡/토스 등 회사 간 동일 스케일을 유지해야 한다
 
+### 대량 공고 배치 처리
+
+50건 이상의 JD 분석 시:
+1. **JD 클리닝** — 사이트 공통 헤더/푸터 제거 (토큰 절약)
+2. **배치 분할** — 15~20건씩 나누어 병렬 분석
+3. **결과 병합** — 전체 요약 테이블 작성
+4. **누락 검증** — 입력 건수 = 분석 건수 확인
+
+**에이전트 지시 시 반드시 포함할 규칙:**
+- 모든 공고를 빠짐없이 분석할 것 (PM만 보고 BA/Strategy 빠뜨리지 말 것)
+- jd_text에 내용이 있으면 "JD 없음/분석불가"라 하지 말고 반드시 읽고 분석할 것
+- 복합 공고(하나의 URL에 여러 포지션)는 세부 포지션별로 개별 점수를 매길 것
+
 ### Step 6: 계약 형태 확인
 
 - 공고 타이틀에 "Fixed-Term Contract", "계약직", "FTC" 등 표시 확인
@@ -141,10 +154,18 @@ description: 채용공고 크롤링 → 프로필 매칭 → 솔직한 추천
 3. 탈락 공고 요약 (공고명 + 탈락 사유)
 4. 지원 전략 제안 (우선순위 + 이력서 강조점)
 
+### Step 7-1: 복합 공고 세부 분석
+
+GO 판정된 공고 중 하나의 URL에 여러 계열사/팀이 묶여 있는 경우:
+- 세부 포지션별로 개별 매칭 점수 부여
+- Tier 1 (최우선) ~ Tier 4 (비추천) 분류
+- 예: 토스 Product Owner 1건 → 토스(공통), 토스(Growth), 토스증권, 토스플레이스, 토스인컴 5개 세부 포지션
+
 ### Step 8: 결과 저장
 
 분석 결과를 job 프로젝트 폴더에 저장:
 - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/customized/{회사명}/all_titles.json`
+- `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/customized/{회사명}/targets.json`
 - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/customized/{회사명}/matched_jds.json`
 - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/customized/{회사명}/analysis.md`
 
