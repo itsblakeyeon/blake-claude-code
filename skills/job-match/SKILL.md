@@ -19,14 +19,18 @@ description: 채용공고 크롤링 → 프로필 매칭 → 솔직한 추천
 
 아래 파일을 읽어서 후보자 프로필을 파악한다:
 
-1. **이력서** — `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/templates/이력서_en.md`
-2. **SOURCE (성향/강점)** — `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/references/self/01.SOURCE.md`
-3. **TARGET (비전/목표)** — `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/references/self/03.TARGET.md`
+1. **이력서(한글)** — `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/templates/이력서_kr.md`
+2. **이력서(영문)** — `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/templates/이력서_en.md`
+3. **SOURCE (성향/강점)** — `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/references/self/01.SOURCE.md`
+4. **TARGET (비전/목표)** — `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/references/self/03.TARGET.md`
+5. **이력서 가이드** — `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/CLAUDE.md`
+
+**경로에 공백 있음 → Bash 사용 시 항상 따옴표로 감싸기**
 
 핵심 요약:
-- Blake Yeon (연준현), PM/BizDev/Growth, ~5년 경력
-- 현직: 화이트큐브 PM (차량 구독 서비스, 10개월)
-- 창업: 롸잇 공동창업 (프리랜서 매칭, 2년 8개월)
+- Blake Yeon (연준현), PM/BizDev/Growth, 경력 ~6년 (2019.07~)
+- 현직: 화이트큐브 PM & BizDev (차량 구독 서비스 '패러데이', 2025.05~)
+- 창업: 롸잇 공동창업 (프리랜서 매칭 '원포인트', 3년, MVP→PMF→시드투자→BEP)
 - 에이전시: BAT 그로스 마케터/파트 리드 (1.5년)
 - 보험: 삼성화재 영업 (1년)
 - 스킬: Claude Code, Supabase, Vercel, Webflow, Zapier, SQL, Python, Mixpanel, Google/Meta/Naver Ads
@@ -34,36 +38,65 @@ description: 채용공고 크롤링 → 프로필 매칭 → 솔직한 추천
 - 언어: **한국어 네이티브, 영어 비즈니스 레벨 미달** (영어 유창 필수 포지션은 현실적으로 어려움)
 - 목표: 네임벨류 확보 → 창업 레버리지
 
-### Step 2: 채용 페이지 크롤링
+### Step 2: 전체 제목 수집
 
-1. URL을 WebFetch로 시도
-2. 동적 페이지(SPA/무한스크롤)인 경우:
-   - 소스에서 API 엔드포인트 탐색
-   - pagination 파라미터 파악 (firstIndex, page, offset 등)
-   - totalRows/totalCount 확인하여 전체 수량 파악
-   - API 직접 호출로 전체 목록 수집
-3. API 접근 불가 시:
-   - WebSearch로 `site:{도메인}` 검색
-   - 서드파티(LinkedIn, Glassdoor, Outscal 등)에서 보충
-4. **전체 공고 수를 유저가 알려준 수와 대조하여 누락 없는지 확인**
+**핵심: 전체 공고 제목+URL을 먼저 전부 수집한다. 키워드 검색이 아님.**
 
-### Step 3: 1차 필터링
+키워드 검색은 누락이 생긴다 (예: 223건 중 키워드 매칭 152건만 나옴 = 71건 미확인).
+반드시 페이지네이션 전체를 순회해서 모든 제목을 수집해야 한다.
 
-전체 공고에서 아래 기준으로 빠르게 걸러낸다:
+#### 크롤링 순서
 
-| 필터 | 기준 |
-|------|------|
-| 인턴/학생/신입 | 제외 (경력 5년+) |
-| 순수 엔지니어링 | 제외 (SWE, ML Engineer 등) |
-| 경력 10년+ 필수 | 제외 (자격 미달) |
-| 영어 유창 필수 (Minimum) | **경고 표시** — 현실적으로 어려움 |
-| PhD 필수 | 제외 |
+1. **WebFetch 시도** → 대부분 Cloudflare/봇차단으로 403 실패
+2. **Playwright 비헤드리스 브라우저** (주력 방법):
+   ```python
+   from playwright.sync_api import sync_playwright
+   browser = p.chromium.launch(
+       headless=False,  # 반드시 False (Cloudflare 우회)
+       args=['--disable-blink-features=AutomationControlled']
+   )
+   context = browser.new_context(
+       user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ...',
+       viewport={'width': 1920, 'height': 1080}, locale='ko-KR'
+   )
+   page = context.new_page()
+   page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
+   ```
+   - 페이지네이션 전체 순회 (page=1,2,3...)
+   - Cloudflare 챌린지 시 `time.sleep(5~10)` 후 재시도
+   - 각 페이지에서 공고 제목+URL 추출 (정규식 or querySelector)
+3. **API 탐색** (보조): 페이지 소스에서 API 엔드포인트 발견 시 직접 호출
+4. **WebSearch 보충** (최후수단): `site:{도메인}` 검색
+
+**수집 완료 후 반드시 유저가 알려준 총 공고 수와 대조하여 누락 확인.**
+
+### Step 3: 제목 기반 1차 필터링
+
+전체 공고에서 **제목만 보고** 빠르게 걸러낸다:
+
+| 제외 대상 | 예시 |
+|-----------|------|
+| 순수 엔지니어링 | Backend/Frontend/Mobile/ML/Infra/SRE/DBA |
+| 디자이너 | Product Designer, UX Designer |
+| Data Scientist/Engineer | 분석 '전담'직 (PM이 아닌 것) |
+| TPM | Technical Program Manager |
+| 법무/컴플라이언스 | Legal, Compliance, 사내변호사 |
+| 재무/회계/세무 | Finance, Tax, Accounting |
+| HR/채용/노무 | Recruiting, Employee Relations |
+| 보안/인프라 | Security Engineer, Cloud Infra |
+| 경력 10년+ 필수 | 자격 미달 |
+| 계약직+직무 불일치 | 계약직이면서 매칭도 안 되는 경우 |
+| 물류/현장/설비 | 물류센터, 설비보전 |
+
+**필터링 결과를 유저에게 보고:** "전체 N건 중 X건 제외, Y건 남음. 제외 카테고리별 건수: ..."
+
+유저 확인 후 다음 단계 진행.
 
 ### Step 4: 상세 JD 크롤링
 
-1차 통과한 공고의 상세 JD를 크롤링한다.
-- 개별 공고 페이지 WebFetch 시도
-- 안 되면 WebSearch로 공고 제목 검색하여 스니펫/서드파티에서 확보
+1차 통과한 공고만 상세 페이지 크롤링한다.
+- Playwright 동일 방식 사용
+- HTML에서 텍스트 추출 (태그 제거, unescape)
 
 ### Step 5: 자격요건 중심 매칭
 
@@ -71,7 +104,7 @@ description: 채용공고 크롤링 → 프로필 매칭 → 솔직한 추천
 
 | 요건 | JD 요구사항 | Blake 경험 | 판단 |
 |------|------------|-----------|------|
-| 최소 경력 | X년 | 5년+ | ✅/❌ |
+| 최소 경력 | X년 | ~6년 | ✅/❌ |
 | 필수 스킬 | ... | ... | ✅/⚠️/❌ |
 | 언어 | ... | 영어 비즈니스 미달 | ✅/❌ |
 | 기타 | ... | ... | ... |
@@ -97,21 +130,22 @@ description: 채용공고 크롤링 → 프로필 매칭 → 솔직한 추천
 
 **출력 형식:**
 
-1. 전체 공고 요약 테이블
-2. Top 3 상세 분석 (자격요건 매칭 + 솔직한 포인트 + 링크)
+1. 전체 공고 요약 테이블 (점수순 정렬)
+2. Top 5 상세 분석 (자격요건 매칭 + 솔직한 포인트 + 링크)
 3. 탈락 공고 요약 (공고명 + 탈락 사유)
-4. 결론 (솔직한 총평)
+4. 지원 전략 제안 (우선순위 + 이력서 강조점)
+
+### Step 8: 결과 저장
+
+분석 결과를 job 프로젝트 폴더에 저장:
+- `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/customized/{회사명}/all_titles.json`
+- `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/customized/{회사명}/matched_jds.json`
+- `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Default/03.Projects/job/customized/{회사명}/analysis.md`
 
 ## Examples
 
 ```
-/blake-claude-code:job-match https://recruit.navercorp.com/rcrt/list.do?...
+/blake-claude-code:job-match https://www.coupang.jobs/kr/jobs/?location=Seoul
 ```
 
-→ 네이버 전체 공고 크롤링 → 28개 중 현실적 후보 3개 추천
-
-```
-/blake-claude-code:job-match https://www.coupang.jobs/en/jobs/?...
-```
-
-→ 쿠팡 전체 공고 크롤링 → 핏한 공고 추천
+→ 쿠팡 서울 전체 222건 제목 수집 → 26건 필터링 → 상세 JD 크롤링 → 매칭 분석 → TOP 5 추천
